@@ -1,0 +1,32 @@
+[options]
+gir_dir = "input"
+library = "Secret"
+version = "1"
+work_mode = "normal"
+generate_safety_asserts = true
+external_libraries = [
+    "GLib",
+]
+
+generate = [
+    "Secret.Collection",
+    "Secret.CollectionCreateFlags",
+    "Secret.CollectionFlags",
+    "Secret.Error",
+    "Secret.Item",
+    "Secret.ItemCreateFlags",
+    "Secret.ItemFlags",
+    "Secret.Prompt",
+    "Secret.Schema",
+    #"Secret.SchemaAttribute",
+    "Secret.SchemaAttributeType",
+    "Secret.SchemaFlags",
+    "Secret.SearchFlags",
+    "Secret.Service",
+    "Secret.ServiceFlags",
+    "Secret.Value",
+]
+
+manual = [
+    "GLib.Error",
+]
