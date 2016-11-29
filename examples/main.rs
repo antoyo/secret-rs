@@ -1,7 +1,6 @@
 extern crate gtk;
+#[macro_use]
 extern crate secret;
-
-use std::collections::HashMap;
 
 use secret::{Schema, Passwords};
 use secret::SchemaAttributeType::{self, Boolean, Integer};
@@ -9,21 +8,34 @@ use secret::SchemaAttributeType::{self, Boolean, Integer};
 fn main() {
     gtk::init().unwrap();
 
-    let mut attribute_types = HashMap::new();
-    attribute_types.insert("number".to_string(), Integer);
-    attribute_types.insert("string".to_string(), SchemaAttributeType::String);
-    attribute_types.insert("even".to_string(), Boolean);
+    let attribute_types = hash! {
+        number => Integer,
+        string => SchemaAttributeType::String,
+        even => Boolean,
+    };
 
     let schema = Schema::new("org.example.Password", attribute_types);
 
-    let mut attributes = HashMap::new();
-    attributes.insert("number".to_string(), "8".to_string());
-    attributes.insert("string".to_string(), "eight".to_string());
-    attributes.insert("even".to_string(), "true".to_string());
+    let attributes = str_hash! {
+        number => 8,
+        string => "eight",
+        even => true,
+    };
 
     let passwords = Passwords::new(schema);
     passwords.store("The label", "the password", &attributes, |result| {
         println!("{:?}", result);
+        gtk::main_quit();
+    });
+
+    gtk::main();
+
+    passwords.store("Label 2", "Pass2", &str_hash! {
+        number => 8,
+        string => "huit",
+        even => true,
+    }, |result| {
+        println!("Second: {:?}", result);
         gtk::main_quit();
     });
 
@@ -36,7 +48,9 @@ fn main() {
 
     gtk::main();
 
-    passwords.search(&attributes, |items| {
+    passwords.search(&str_hash! {
+        number => 8,
+    }, |items| {
         println!("****************");
         let items = items.unwrap();
         for item in items {
@@ -54,6 +68,11 @@ fn main() {
     gtk::main();
 
     passwords.clear(&attributes, |result| {
+        println!("{:?}", result);
+        gtk::main_quit();
+    });
+
+    passwords.clear(&str_hash! { even => true, }, |result| {
         println!("{:?}", result);
         gtk::main_quit();
     });

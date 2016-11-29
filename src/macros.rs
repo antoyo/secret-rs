@@ -20,15 +20,19 @@
  */
 
 #[macro_export]
-macro_rules! c_str {
-    ($($string:expr),*) => {
-        concat!($($string),*, "\0") as *const _ as *const _
-    };
+macro_rules! hash {
+    ($($key:ident => $value:expr,)*) => {{
+        let mut hash_map = ::std::collections::HashMap::new();
+        $(hash_map.insert(stringify!($key).to_string(), $value);)*
+        hash_map
+    }};
 }
 
 #[macro_export]
-macro_rules! c_stringify {
-    ($string:ident) => {
-        concat!(stringify!($string), "\0").as_ptr()
-    };
+macro_rules! str_hash {
+    ($($key:ident => $value:expr,)*) => {{
+        let mut hash_map = ::std::collections::HashMap::new();
+        $(hash_map.insert(stringify!($key).to_string(), $value.to_string());)*
+        hash_map
+    }};
 }
