@@ -28,5 +28,5 @@ git = "https://github.com/gtk-rs/gtk"
 version = "0.1.0"
 
 [dependencies.secret-sys]
-path = "../secret-sys"
+git = "https://github.com/antoyo/secret-sys-rs"
 version = "0.2.0"
