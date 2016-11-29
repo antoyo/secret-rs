@@ -21,15 +21,33 @@
 
 use std::collections::HashMap;
 use std::ffi::CStr;
-use std::mem::uninitialized;
+use std::mem::{transmute, uninitialized};
 use std::ptr::null_mut;
 
-use glib::translate::ToGlibPtr;
-use glib_ffi::{GHashTableIter, g_hash_table_iter_init, g_hash_table_iter_next};
+use ffi;
+use gio_sys;
+use glib::error;
+use glib::translate::{ToGlibPtr, from_glib_full};
+use glib_ffi::{self, GHashTableIter, g_hash_table_iter_init, g_hash_table_iter_next};
+use gobject_ffi;
+use libc::c_void;
 
+use AsyncReadyCallback;
 use Item;
 
 impl Item {
+    pub fn delete<F: Fn(Result<bool, error::Error>) + 'static>(&self, callback: F) {
+        let trampoline: AsyncReadyCallback = unsafe { transmute(item_delete_trampoline as usize) };
+        type BoxedFn = Box<Fn(Result<bool, error::Error>) + 'static>;
+        let f: Box<BoxedFn> = Box::new(Box::new(callback));
+        let user_data: *mut c_void = Box::into_raw(f) as *mut _;
+        unsafe {
+            ffi::secret_item_delete(
+                self.to_glib_none().0, null_mut(), trampoline, user_data
+            );
+        }
+    }
+
     pub fn get_attributes(&self) -> HashMap<String, String> {
         let mut attributes = HashMap::new();
         let hash_table = unsafe { ::ffi::secret_item_get_attributes(self.to_glib_none().0) };
@@ -44,4 +62,19 @@ impl Item {
         }
         attributes
     }
+}
+
+unsafe extern "C" fn item_delete_trampoline(this: *mut gobject_ffi::GObject, result: *mut gio_sys::GAsyncResult, f: glib_ffi::gpointer) {
+    callback_guard!();
+    let mut error = null_mut();
+    let result = ffi::secret_item_delete_finish(this as *mut _, result, &mut error);
+    let value =
+        if result != 0 {
+            Ok(true)
+        }
+        else {
+            Err(from_glib_full(error))
+        };
+    let f: &Box<Fn(Result<bool, error::Error>) + 'static> = &*(f as *const _);
+    f(value)
 }

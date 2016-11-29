@@ -23,7 +23,7 @@ extern crate gtk;
 #[macro_use]
 extern crate secret;
 
-use secret::{Schema, Passwords};
+use secret::{Passwords, Schema};
 use secret::SchemaAttributeType::{self, Boolean, Integer};
 
 fn main() {

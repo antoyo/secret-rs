@@ -58,9 +58,13 @@ macro_rules! callback_guard {
 #[macro_use]
 mod macros;
 mod auto;
+mod collection;
 mod item;
-mod schema;
 mod password;
+mod schema;
+mod service;
 
 pub use auto::*;
 pub use password::*;
+
+pub type AsyncReadyCallback = Option<unsafe extern "C" fn(*mut gobject_ffi::GObject, *mut gio_sys::GAsyncResult, *mut libc::c_void)>;

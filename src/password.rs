@@ -32,13 +32,19 @@ use glib_ffi::{self, GHashTable, g_hash_table_insert};
 use gobject_ffi;
 use libc::c_void;
 
+use AsyncReadyCallback;
 use Item;
 use Schema;
 use SEARCH_ALL;
 use SEARCH_LOAD_SECRETS;
 use SEARCH_UNLOCK;
+use self::PasswordError::*;
 
-pub type AsyncReadyCallback = Option<unsafe extern "C" fn(*mut gobject_ffi::GObject, *mut gio_sys::GAsyncResult, *mut c_void)>;
+#[derive(Debug)]
+pub enum PasswordError {
+    Glib(error::Error),
+    NoResult,
+}
 
 pub struct Passwords {
     pub collection: Option<String>,
@@ -58,7 +64,7 @@ impl Passwords {
         type BoxedFn = Box<Fn(Result<bool, error::Error>) + 'static>;
         let f: Box<BoxedFn> = Box::new(Box::new(callback));
         let user_data: *mut c_void = Box::into_raw(f) as *mut _;
-        let (_strings, hash_table) = to_glib_hash_map(self.schema.to_glib_none().0, attributes);
+        let (_strings, hash_table) = unsafe { to_glib_string_hash_map(self.schema.to_glib_none().0, attributes) };
         unsafe {
             ffi::secret_password_clearv(
                 self.schema.to_glib_none().0, hash_table, null_mut(), trampoline, user_data
@@ -66,10 +72,10 @@ impl Passwords {
         }
     }
 
-    pub fn lookup<F: Fn(Result<String, error::Error>) + 'static>(&self, attributes: &HashMap<String, String>, callback: F) {
-        let (_strings, hash_table) = to_glib_hash_map(self.schema.to_glib_none().0, attributes);
+    pub fn lookup<F: Fn(Result<String, PasswordError>) + 'static>(&self, attributes: &HashMap<String, String>, callback: F) {
+        let (_strings, hash_table) = unsafe { to_glib_string_hash_map(self.schema.to_glib_none().0, attributes) };
         let trampoline: AsyncReadyCallback = unsafe { transmute(password_lookup_trampoline as usize) };
-        type BoxedFn = Box<Fn(Result<String, error::Error>) + 'static>;
+        type BoxedFn = Box<Fn(Result<String, PasswordError>) + 'static>;
         let f: Box<BoxedFn> = Box::new(Box::new(callback));
         let user_data: *mut c_void = Box::into_raw(f) as *mut _;
         unsafe {
@@ -80,7 +86,7 @@ impl Passwords {
     }
 
     pub fn search<F: Fn(Result<Vec<Item>, error::Error>) + 'static>(&self, attributes: &HashMap<String, String>, callback: F) {
-        let (_strings, hash_table) = to_glib_hash_map(self.schema.to_glib_none().0, attributes);
+        let (_strings, hash_table) = unsafe { to_glib_string_hash_map(self.schema.to_glib_none().0, attributes) };
         let trampoline: AsyncReadyCallback = unsafe { transmute(service_search_trampoline as usize) };
         type BoxedFn = Box<Fn(Result<Vec<Item>, ::glib::error::Error>) + 'static>;
         let f: Box<BoxedFn> = Box::new(Box::new(callback));
@@ -93,7 +99,7 @@ impl Passwords {
     }
 
     pub fn store<F: Fn(Result<bool, error::Error>) + 'static>(&self, label: &str, password: &str, attributes: &HashMap<String, String>, callback: F) {
-        let (_strings, hash_table) = to_glib_hash_map(self.schema.to_glib_none().0, attributes);
+        let (_strings, hash_table) = unsafe { to_glib_string_hash_map(self.schema.to_glib_none().0, attributes) };
         let trampoline: AsyncReadyCallback = unsafe { transmute(password_store_trampoline as usize) };
         type BoxedFn = Box<Fn(Result<bool, error::Error>) + 'static>;
         let f: Box<BoxedFn> = Box::new(Box::new(callback));
@@ -129,15 +135,18 @@ unsafe extern "C" fn password_lookup_trampoline(_this: *mut gobject_ffi::GObject
     let mut error = null_mut();
     let result = ffi::secret_password_lookup_finish(result, &mut error);
     let value =
-        if result.is_null() {
-            Err(from_glib_full(error))
+        if !error.is_null() {
+            Err(Glib(from_glib_full(error)))
         }
-        else {
+        else if !result.is_null() {
             let password = Ok(from_glib_none(result));
             ffi::secret_password_free(result);
             password
+        }
+        else {
+            Err(NoResult)
         };
-    let f: &Box<Fn(Result<String, error::Error>) + 'static> = &*(f as *const _);
+    let f: &Box<Fn(Result<String, PasswordError>) + 'static> = &*(f as *const _);
     f(value)
 }
 
@@ -177,13 +186,13 @@ unsafe extern "C" fn service_search_trampoline(_this: *mut gobject_ffi::GObject,
     f(value)
 }
 
-fn to_glib_hash_map(schema: *mut ffi::SecretSchema, hash_map: &HashMap<String, String>) -> (Vec<CString>, *mut GHashTable) {
-    let result = unsafe { ffi::secret_attributes_build(schema, null_mut() as *mut c_void) };
+pub unsafe fn to_glib_string_hash_map(schema: *mut ffi::SecretSchema, hash_map: &HashMap<String, String>) -> (Vec<CString>, *mut GHashTable) {
+    let result = ffi::secret_attributes_build(schema, null_mut() as *mut c_void);
     let mut strings = vec![];
     for (key, value) in hash_map {
         let key = CString::new(key.clone()).unwrap();
         let value = CString::new(value.clone()).unwrap();
-        unsafe { g_hash_table_insert(result, key.as_ptr() as *mut _, value.as_ptr() as *mut _) };
+        g_hash_table_insert(result, key.as_ptr() as *mut _, value.as_ptr() as *mut _);
         strings.push(key);
         strings.push(value);
     }
