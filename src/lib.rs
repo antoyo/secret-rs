@@ -37,6 +37,7 @@ macro_rules! callback_guard {
 #[macro_use]
 mod macros;
 mod auto;
+mod item;
 mod schema;
 mod password;
 

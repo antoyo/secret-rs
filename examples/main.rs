@@ -40,6 +40,23 @@ fn main() {
 
     gtk::main();
 
+    passwords.search(|items| {
+        println!("****************");
+        let items = items.unwrap();
+        for item in items {
+            println!("Label: {:?}", item.get_label());
+            println!("Secret: {:?}", item.get_secret().and_then(|secret| secret.get_text()));
+            let attributes = item.get_attributes();
+            for (key, value) in attributes {
+                println!("{}: {}", key, value);
+            }
+            println!("****************");
+        }
+        gtk::main_quit();
+    });
+
+    gtk::main();
+
     clear!(passwords, |result| {
         println!("{:?}", result);
         gtk::main_quit();
