@@ -19,20 +19,34 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#[macro_export]
-macro_rules! new_schema {
-    ($name:expr, { $($key:ident: $typ:expr ,)* }) => {{
-        use glib::translate::ToGlib;
+use std::collections::HashMap;
+use std::ffi::CString;
 
-        let end: *const ::libc::c_void = ::std::ptr::null();
-        let schema: $crate::Schema = unsafe {
-            ::glib::translate::from_glib_full(
-                ::secret_sys::secret_schema_new(c_str!($name), ::secret_sys::SECRET_SCHEMA_NONE,
-                $(c_stringify!($key), $typ.to_glib(),)*
-                end
-                )
-            )
-        };
-        schema
-    }};
+use glib::translate::{ToGlib, from_glib_full};
+use glib_ffi::{GHashTable, g_hash_table_insert, g_hash_table_new, g_int_equal, g_str_hash};
+use libc::c_void;
+
+use ffi;
+use Schema;
+use SchemaAttributeType;
+
+impl Schema {
+    pub fn new(name: &str, attribute_types: HashMap<String, SchemaAttributeType>) -> Self {
+        let (_strings, hash_table) = to_glib_hash_map(&attribute_types);
+        let name = CString::new(name).unwrap();
+        let schema = unsafe { ffi::secret_schema_newv(name.as_ptr(), ffi::SECRET_SCHEMA_NONE, hash_table) };
+        unsafe { from_glib_full(schema) }
+    }
+}
+
+fn to_glib_hash_map(hash_map: &HashMap<String, SchemaAttributeType>) -> (Vec<CString>, *mut GHashTable) {
+    let result = unsafe { g_hash_table_new(Some(g_str_hash), Some(g_int_equal)) };
+    let mut strings = vec![];
+    for (key, value) in hash_map {
+        let key = CString::new(key.clone()).unwrap();
+        let value = value.to_glib() as i64;
+        unsafe { g_hash_table_insert(result, key.as_ptr() as *mut _, value as *mut c_void) };
+        strings.push(key);
+    }
+    (strings, result)
 }

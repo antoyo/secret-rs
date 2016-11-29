@@ -1,46 +1,42 @@
-extern crate gio_sys;
-extern crate glib;
-extern crate glib_sys;
-extern crate gobject_sys;
 extern crate gtk;
-extern crate libc;
-#[macro_use]
 extern crate secret;
-extern crate secret_sys;
 
-use secret::Passwords;
-use secret::SchemaAttributeType::{Boolean, Integer};
+use std::collections::HashMap;
+
+use secret::{Schema, Passwords};
+use secret::SchemaAttributeType::{self, Boolean, Integer};
 
 fn main() {
     gtk::init().unwrap();
 
-    let schema = new_schema!("org.example.Password", {
-        number: Integer,
-        //string: SchemaAttributeType::String, // FIXME: String type not working in the store! macro.
-        even: Boolean,
-    });
+    let mut attribute_types = HashMap::new();
+    attribute_types.insert("number".to_string(), Integer);
+    attribute_types.insert("string".to_string(), SchemaAttributeType::String);
+    attribute_types.insert("even".to_string(), Boolean);
+
+    let schema = Schema::new("org.example.Password", attribute_types);
+
+    let mut attributes = HashMap::new();
+    attributes.insert("number".to_string(), "8".to_string());
+    attributes.insert("string".to_string(), "eight".to_string());
+    attributes.insert("even".to_string(), "true".to_string());
+
     let passwords = Passwords::new(schema);
-    store!(passwords, "The label", "the password", |result| {
+    passwords.store("The label", "the password", &attributes, |result| {
         println!("{:?}", result);
         gtk::main_quit();
-    }, {
-        number: 8,
-        even: true,
     });
 
     gtk::main();
 
-    lookup!(passwords, |password| {
+    passwords.lookup(&attributes, |password| {
         println!("{:?}", password);
         gtk::main_quit();
-    }, {
-        number: 8,
-        even: true,
     });
 
     gtk::main();
 
-    passwords.search(|items| {
+    passwords.search(&attributes, |items| {
         println!("****************");
         let items = items.unwrap();
         for item in items {
@@ -57,12 +53,9 @@ fn main() {
 
     gtk::main();
 
-    clear!(passwords, |result| {
+    passwords.clear(&attributes, |result| {
         println!("{:?}", result);
         gtk::main_quit();
-    }, {
-        number: 8,
-        even: true,
     });
 
     gtk::main();
