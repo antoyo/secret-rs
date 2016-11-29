@@ -73,7 +73,9 @@ macro_rules! lookup {
                     Err(::glib::translate::from_glib_full(error))
                 }
                 else {
-                    Ok(::glib::translate::from_glib_none(result))
+                    let password = Ok(::glib::translate::from_glib_none(result));
+                    ::secret_sys::secret_password_free(result);
+                    password
                 };
             let f: &Box<Fn(Result<String, ::glib::error::Error>) + 'static> = &*(f as *const _);
             f(value)
