@@ -43,9 +43,9 @@ impl Service {
         unsafe { ffi::secret_service_get(SERVICE_NONE.to_glib(), null_mut(), trampoline, user_data) };
     }
 
-    pub fn load_collections<F: Fn(Result<bool, error::Error>) + 'static>(&self, callback: F) {
+    pub fn load_collections<F: FnOnce(Result<bool, error::Error>) + 'static>(&self, callback: F) {
         let trampoline: AsyncReadyCallback = unsafe { transmute(service_load_collections_trampoline as usize) };
-        type BoxedFn = Box<Fn(Result<bool, error::Error>) + 'static>;
+        type BoxedFn = Box<FnOnce(Result<bool, error::Error>) + 'static>;
         let f: Box<BoxedFn> = Box::new(Box::new(callback));
         let user_data: *mut c_void = Box::into_raw(f) as *mut _;
         unsafe { ffi::secret_service_load_collections(self.to_glib_none().0, null_mut(), trampoline, user_data) };
